@@ -42,6 +42,19 @@ public class User {
                 throw new IllegalStateException("Password cannot be empty.");
             }
             return new User(this);
+
+
+
+
+            
         }
+
+
+
+
     }
+
+
+
+
 }
