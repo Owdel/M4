@@ -3,6 +3,7 @@
 
 package com.mycompany.milestone;
 
+import java.text.NumberFormat;
 /**
  *
  * @author Owdel
@@ -70,5 +71,55 @@ private final String username;
                 throw new IllegalStateException("Date cannot be empty.");
             return new Reservation(this);
         }
+public abstract class Transaction {
+     protected static final double TAX_RATE = 0.12; // 12% VAT
+ 
+    protected final double amount;
+    protected final double tax;
+    protected final double totalAmount;
+    protected final String date;
+    protected String status;
+ 
+    protected Transaction(double amount, String date) {
+        if (amount <= 0) {
+            throw new FinanceException("Amount must be greater than zero.", "Transaction");
+        }
+        if (date == null || date.isEmpty()) {
+            throw new FinanceException("Date cannot be empty.", "Transaction");
+        }
+        this.amount      = amount;
+        this.tax         = applyTax(amount);
+        this.totalAmount = amount + this.tax;
+        this.date        = date;
+        this.status      = "completed";
+    }
+ 
+    // Concrete tax method — subclasses inherit this
+    protected double applyTax(double amount) {
+        return Math.round(amount * TAX_RATE * 100.0) / 100.0;
+    }
+ 
+    // Abstract — every subclass must define these
+    public abstract String getType();
+    public abstract String getDescription();
+    public abstract void processTransaction();
+ 
+    // Getters
+    public double getAmount()      { return amount; }
+    public double getTax()         { return tax; }
+    public double getTotalAmount() { return totalAmount; }
+    public String getDate()        { return date; }
+    public String getStatus()      { return status; }
+ 
+    // Display helper
+    public void printSummary() {
+        NumberFormat fmt = NumberFormat.getNumberInstance();
+        System.out.println("  Type        : " + getType());
+        System.out.println("  Description : " + getDescription());
+        System.out.println("  Amount      : " + fmt.format(amount));
+        System.out.println("  Tax (12%)   : " + fmt.format(tax));
+        System.out.println("  Total       : " + fmt.format(totalAmount));
+        System.out.println("  Date        : " + date);
+        System.out.println("  Status      : " + status);
     }
 }
