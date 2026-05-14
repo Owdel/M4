@@ -1,0 +1,431 @@
+
+package com.mycompany.milestone;
+import java.sql.*;
+import java.util.*;
+
+public class DatabaseHelper {
+       private static final String DB_URL = "jdbc:sqlite:C:/Milestone1/Milestone1.db";
+ 
+    private static Connection openConnection() throws Exception {
+        Class.forName("org.sqlite.JDBC");
+        return DriverManager.getConnection(DB_URL);
+    }
+ 
+    // ---------------------------------------------------------------
+    // AUTH
+    // ---------------------------------------------------------------
+ 
+    public static String login(User user) {
+        String sql = "SELECT role FROM users WHERE username = ? AND password = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, user.getUsername());
+            stmt.setString(2, user.getPassword());
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getString("role");
+            return null;
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+            return null;
+        }
+    }
+ 
+    public static boolean usernameExists(String username) {
+        return queryBoolean("SELECT 1 FROM users WHERE username = ?", username);
+    }
+ 
+    public static boolean insertUser(User user, Student student) {
+        String insertUser    = "INSERT INTO users (username, password, role) VALUES (?, ?, 'student')";
+        String insertStudent = "INSERT INTO students (username, firstName, lastName, number, email, class, gradeLvl) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        Connection conn = null;
+        try {
+            conn = openConnection();
+            conn.setAutoCommit(false);
+ 
+            PreparedStatement userStmt = conn.prepareStatement(insertUser);
+            userStmt.setString(1, user.getUsername());
+            userStmt.setString(2, user.getPassword());
+            userStmt.executeUpdate();
+ 
+            PreparedStatement studentStmt = conn.prepareStatement(insertStudent);
+            studentStmt.setString(1, student.getUsername());
+            studentStmt.setString(2, student.getFirstName());
+            studentStmt.setString(3, student.getLastName());
+            studentStmt.setString(4, student.getNumber());
+            studentStmt.setString(5, student.getEmail());
+            studentStmt.setString(6, student.getClassName());
+            studentStmt.setString(7, student.getGradeLvl());
+            studentStmt.executeUpdate();
+ 
+            conn.commit();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while creating account: " + e.getMessage());
+            try { if (conn != null) conn.rollback(); } catch (Exception ignored) {}
+            return false;
+        } finally {
+            try { if (conn != null) conn.close(); } catch (Exception ignored) {}
+        }
+    }
+ 
+    // ---------------------------------------------------------------
+    // KITCHEN
+    // ---------------------------------------------------------------
+ 
+    public static List<String> getAllKitchenEntries() {
+        String sql = "SELECT id, kitchen_id, section, availability, scheduleStart, scheduleEnd, price, username FROM kitchen ORDER BY scheduleStart";
+        List<String> results = new ArrayList<>();
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                String line = String.format(
+                    "[ID: %d] Kitchen %d | Section %d | %-10s | %s to %s | \u20B1%.2f | User: %s",
+                    rs.getInt("id"),
+                    rs.getInt("kitchen_id"),
+                    rs.getInt("section"),
+                    rs.getString("availability"),
+                    rs.getString("scheduleStart"),
+                    rs.getString("scheduleEnd"),
+                    rs.getDouble("price"),
+                    rs.getString("username") != null ? rs.getString("username") : "N/A"
+                );
+                results.add(line);
+            }
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+        return results;
+    }
+ 
+    public static boolean insertKitchen(Kitchen kitchen) {
+        String sql = "INSERT INTO kitchen (kitchen_id, section, availability, scheduleStart, scheduleEnd, price, username) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, kitchen.getKitchenId());
+            stmt.setInt(2, kitchen.getSection());
+            stmt.setString(3, kitchen.getAvailability());
+            stmt.setString(4, kitchen.getScheduleStart());
+            stmt.setString(5, kitchen.getScheduleEnd());
+            stmt.setDouble(6, kitchen.getPrice());
+            stmt.setString(7, kitchen.getUsername());
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while inserting kitchen: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    public static boolean updateKitchen(int id, Kitchen kitchen) {
+        String sql = "UPDATE kitchen SET kitchen_id = ?, section = ?, availability = ?, scheduleStart = ?, scheduleEnd = ?, price = ?, username = ? WHERE id = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, kitchen.getKitchenId());
+            stmt.setInt(2, kitchen.getSection());
+            stmt.setString(3, kitchen.getAvailability());
+            stmt.setString(4, kitchen.getScheduleStart());
+            stmt.setString(5, kitchen.getScheduleEnd());
+            stmt.setDouble(6, kitchen.getPrice());
+            stmt.setString(7, kitchen.getUsername());
+            stmt.setInt(8, id);
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while updating kitchen: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    public static boolean deleteKitchen(int id) {
+        String sql = "DELETE FROM kitchen WHERE id = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, id);
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while deleting kitchen: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    public static Map<String, String> getKitchenById(int id) {
+        List<Map<String, String>> results = queryList(
+            "SELECT * FROM kitchen WHERE id = ?", String.valueOf(id));
+        return results.isEmpty() ? null : results.get(0);
+    }
+ 
+    public static boolean updateKitchenAvailability(int id, String availability) {
+        String sql = "UPDATE kitchen SET availability = ? WHERE id = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, availability);
+            stmt.setInt(2, id);
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while updating kitchen status: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    // Returns true if the kitchen is free for the given time slot
+    public static boolean isKitchenAvailable(int kitchenId, String start, String end) {
+        // Checks for any Occupied or Approved booking that overlaps with the requested slot
+        String sql = "SELECT 1 FROM kitchen WHERE kitchen_id = ? " +
+                     "AND availability IN ('Occupied', 'Approved') " +
+                     "AND scheduleStart < ? AND scheduleEnd > ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, kitchenId);
+            stmt.setString(2, end);
+            stmt.setString(3, start);
+            ResultSet rs = stmt.executeQuery();
+            return !rs.next(); // true = no overlap found = kitchen is available
+        } catch (Exception e) {
+            System.out.println("Database error checking kitchen availability: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    // Parses "M/D/YYYY H:MMAM" or "M/D/YYYY H:MMPM" → "YYYY-MM-DD HH:MM:00"
+    public static String parseInputDateTime(String input) {
+        try {
+            input = input.trim().toUpperCase();
+            boolean isPM = input.endsWith("PM");
+            input = input.replace("AM", "").replace("PM", "").trim();
+ 
+            String[] parts     = input.split(" ");
+            String[] dateSplit = parts[0].split("/");
+            String[] timeSplit = parts[1].split(":");
+ 
+            int month  = Integer.parseInt(dateSplit[0]);
+            int day    = Integer.parseInt(dateSplit[1]);
+            int year   = Integer.parseInt(dateSplit[2]);
+            int hour   = Integer.parseInt(timeSplit[0]);
+            int minute = Integer.parseInt(timeSplit[1]);
+ 
+            if (isPM && hour != 12) hour += 12;
+            if (!isPM && hour == 12) hour = 0;
+ 
+            return String.format("%04d-%02d-%02d %02d:%02d:00", year, month, day, hour, minute);
+        } catch (Exception e) {
+            throw new IllegalStateException("Invalid date/time format. Use M/D/YYYY H:MMAM or H:MMPM (e.g. 5/8/2026 1:00PM)");
+        }
+    }
+ 
+    // ---------------------------------------------------------------
+    // STUDENTS
+    // ---------------------------------------------------------------
+ 
+    public static String[] getStudentByUsername(String username) {
+        String sql = "SELECT username, firstName, lastName, number, email, class, gradeLvl FROM students WHERE username = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                return new String[]{
+                    rs.getString("username"),
+                    rs.getString("firstName"),
+                    rs.getString("lastName"),
+                    rs.getString("number"),
+                    rs.getString("email"),
+                    rs.getString("class"),
+                    rs.getString("gradeLvl")
+                };
+            }
+            return null;
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+            return null;
+        }
+    }
+ 
+    public static String getPasswordByUsername(String username) {
+        String sql = "SELECT password FROM users WHERE username = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) return rs.getString("password");
+            return "";
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+            return "";
+        }
+    }
+ 
+    public static Map<String, List<String>> getAllStudentsGroupedBySection() {
+        String sql = "SELECT username, firstName, lastName, number, email, class, gradeLvl FROM students ORDER BY class, lastName";
+        Map<String, List<String>> grouped = new LinkedHashMap<>();
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                String section = rs.getString("class");
+                String line = String.format("  %-15s %-15s %-15s %-25s Grade %s",
+                        rs.getString("username"),
+                        rs.getString("firstName"),
+                        rs.getString("lastName"),
+                        rs.getString("email"),
+                        rs.getString("gradeLvl"));
+                grouped.computeIfAbsent(section, k -> new ArrayList<>()).add(line);
+            }
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+        return grouped;
+    }
+ 
+    public static boolean updateStudent(String oldUsername, String newUsername, String newPassword,
+                                        String newNumber, String newEmail, String newSection, String newGradeLvl) {
+        Connection conn = null;
+        try {
+            conn = openConnection();
+            conn.setAutoCommit(false);
+ 
+            PreparedStatement userStmt = conn.prepareStatement(
+                "UPDATE users SET username = ?, password = ? WHERE username = ?");
+            userStmt.setString(1, newUsername);
+            userStmt.setString(2, newPassword);
+            userStmt.setString(3, oldUsername);
+            userStmt.executeUpdate();
+ 
+            PreparedStatement studentStmt = conn.prepareStatement(
+                "UPDATE students SET username = ?, number = ?, email = ?, class = ?, gradeLvl = ? WHERE username = ?");
+            studentStmt.setString(1, newUsername);
+            studentStmt.setString(2, newNumber);
+            studentStmt.setString(3, newEmail);
+            studentStmt.setString(4, newSection);
+            studentStmt.setString(5, newGradeLvl);
+            studentStmt.setString(6, oldUsername);
+            studentStmt.executeUpdate();
+ 
+            conn.commit();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while updating student: " + e.getMessage());
+            try { if (conn != null) conn.rollback(); } catch (Exception ignored) {}
+            return false;
+        } finally {
+            try { if (conn != null) conn.close(); } catch (Exception ignored) {}
+        }
+    }
+ 
+    // ---------------------------------------------------------------
+    // TRANSACTIONS
+    // ---------------------------------------------------------------
+ 
+    public static boolean insertTransaction(ReservationTransaction t) {
+        String sql = "INSERT INTO transactions (reservationId, username, type, amount, tax, totalAmount, description, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, t.getReservationId());
+            stmt.setString(2, t.getUsername());
+            stmt.setString(3, t.getType());
+            stmt.setDouble(4, t.getAmount());
+            stmt.setDouble(5, t.getTax());
+            stmt.setDouble(6, t.getTotalAmount());
+            stmt.setString(7, t.getDescription());
+            stmt.setString(8, t.getStatus());
+            stmt.setString(9, t.getDate());
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while inserting transaction: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    public static List<Map<String, String>> getAllTransactions() {
+        return queryList("SELECT * FROM transactions ORDER BY date DESC");
+    }
+ 
+ 
+ 
+    // Returns all Approved kitchen bookings for a specific user
+    public static List<Map<String, String>> getApprovedBookingsByUser(String username) {
+        return queryList(
+            "SELECT * FROM kitchen WHERE username = ? AND availability = 'Approved' ORDER BY scheduleStart",
+            username);
+    }
+ 
+    // ---------------------------------------------------------------
+    // FRAMEWORK TRANSACTIONS
+    // ---------------------------------------------------------------
+ 
+    // Used by KitchenPayment.finalizeTransaction()
+    public static boolean insertFrameworkTransaction(int bookingId, String username,
+                                                     double total, String description, String date) {
+        // Back-calculate base and VAT from the total for storage
+        double base = total / (1 + 0.12);
+        double tax  = total - base;
+ 
+        String sql = "INSERT INTO transactions (reservationId, username, type, amount, tax, totalAmount, description, status, date) VALUES (?, ?, 'KITCHEN_BOOKING', ?, ?, ?, ?, 'completed', ?)";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setInt(1, bookingId);
+            stmt.setString(2, username);
+            stmt.setDouble(3, base);
+            stmt.setDouble(4, tax);
+            stmt.setDouble(5, total);
+            stmt.setString(6, description);
+            stmt.setString(7, date);
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while saving transaction: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    // Used by KitchenPayment.processRefundInDB()
+    public static boolean processRefund(String transactionId, double amount) {
+        String sql = "UPDATE transactions SET status = 'refunded' WHERE id = ?";
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, transactionId);
+            stmt.executeUpdate();
+            return true;
+        } catch (Exception e) {
+            System.out.println("Database error while processing refund: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    // ---------------------------------------------------------------
+    // PRIVATE HELPERS
+    // ---------------------------------------------------------------
+ 
+    private static boolean queryBoolean(String sql, String... params) {
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) stmt.setString(i + 1, params[i]);
+            return stmt.executeQuery().next();
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+            return false;
+        }
+    }
+ 
+    private static List<Map<String, String>> queryList(String sql, String... params) {
+        List<Map<String, String>> results = new ArrayList<>();
+        try (Connection conn = openConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (int i = 0; i < params.length; i++) stmt.setString(i + 1, params[i]);
+            ResultSet rs = stmt.executeQuery();
+            ResultSetMetaData meta = rs.getMetaData();
+            int cols = meta.getColumnCount();
+            while (rs.next()) {
+                Map<String, String> row = new LinkedHashMap<>();
+                for (int i = 1; i <= cols; i++) row.put(meta.getColumnName(i), rs.getString(i));
+                results.add(row);
+            }
+        } catch (Exception e) {
+            System.out.println("Database error: " + e.getMessage());
+        }
+        return results;
+    }
+}
