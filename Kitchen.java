@@ -95,7 +95,23 @@ public class Kitchen {
             if (username == null || username.isEmpty())
                 throw new IllegalStateException("Username cannot be empty.");
             return new Kitchen(this);
+
+
+
+            
         }
+
+
+
+
     }
+
+
+    
 }
  
+
+
+
+
+
