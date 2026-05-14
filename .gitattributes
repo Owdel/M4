@@ -2,11 +2,75 @@
 * text=auto
 
 package com.mycompany.milestone;
+
 import java.text.NumberFormat;
 /**
  *
  * @author Owdel
  */
+public class Reservation {
+    
+private final String username;
+    private final String itemName;
+    private final double amount;
+    private final String date;
+    private String status;
+ 
+    private Reservation(Builder builder) {
+        this.username = builder.username;
+        this.itemName = builder.itemName;
+        this.amount   = builder.amount;
+        this.date     = builder.date;
+        this.status   = "pending";
+    }
+ 
+    public String getUsername() { return username; }
+    public String getItemName() { return itemName; }
+    public double getAmount()   { return amount; }
+    public String getDate()     { return date; }
+    public String getStatus()   { return status; }
+ 
+    // ---------------------------------------------------------------
+    // BUILDER
+    // ---------------------------------------------------------------
+    public static class Builder {
+ 
+        private String username;
+        private String itemName;
+        private double amount;
+        private String date;
+ 
+        public Builder username(String username) {
+            this.username = username;
+            return this;
+        }
+ 
+        public Builder itemName(String itemName) {
+            this.itemName = itemName;
+            return this;
+        }
+ 
+        public Builder amount(double amount) {
+            this.amount = amount;
+            return this;
+        }
+ 
+        public Builder date(String date) {
+            this.date = date;
+            return this;
+        }
+ 
+        public Reservation build() {
+            if (username == null || username.isEmpty())
+                throw new IllegalStateException("Username cannot be empty.");
+            if (itemName == null || itemName.isEmpty())
+                throw new IllegalStateException("Item name cannot be empty.");
+            if (amount <= 0)
+                throw new FinanceException("Amount must be greater than zero.", "Reservation.Builder");
+            if (date == null || date.isEmpty())
+                throw new IllegalStateException("Date cannot be empty.");
+            return new Reservation(this);
+        }
 public abstract class Transaction {
      protected static final double TAX_RATE = 0.12; // 12% VAT
  
